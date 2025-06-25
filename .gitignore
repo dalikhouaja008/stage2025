@@ -1,0 +1,21 @@
+# Ignorer le fichier d'environnement contenant les variables sensibles
+.env
+
+# Ignorer les fichiers temporaires de l'éditeur
+*.swp
+*.swo
+*.tmp
+
+# Ignorer les dossiers et fichiers générés
+node_modules/
+bin/
+obj/
+dist/
+build/
+
+# Ignorer les logs
+*.log
+
+# Ignorer les fichiers système
+.DS_Store
+Thumbs.db

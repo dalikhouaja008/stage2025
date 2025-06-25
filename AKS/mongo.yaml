@@ -1,0 +1,75 @@
+# PersistentVolumeClaim pour MongoDB : demande de stockage persistant
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc  # Nom du PVC, utilisé pour réclamer un volume persistant
+spec:
+  accessModes:
+    - ReadWriteOnce  # Mode d'accès : un seul nœud peut lire et écrire sur ce volume (adapté à MongoDB)
+  resources:
+    requests:
+      storage: 1Gi   # Taille de stockage demandée : 1 gigaoctet
+
+---
+# Deployment pour MongoDB : gestion du cycle de vie des pods MongoDB
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-deployment  # Nom du déploiement
+  labels:
+    app: mongodb            # Label pour identifier les ressources liées à MongoDB
+spec:
+  replicas: 1               # Nombre de pods MongoDB à exécuter
+  selector:
+    matchLabels:
+      app: mongodb          # Sélecteur qui cible les pods avec ce label (doit correspondre aux labels du template)
+  template:
+    metadata:
+      labels:
+        app: mongodb        # Label attribué aux pods créés par ce déploiement
+    spec:
+      containers:
+        - name: mongodb     # Nom du conteneur dans le pod
+          image: mongo:latest  # Image officielle MongoDB (dernière version)
+          ports:
+            - containerPort: 27017  # Port exposé par MongoDB (port par défaut)
+          resources:
+            requests:
+              memory: "512Mi"  # Ressources minimales garanties (mémoire)
+              cpu: "250m"    # Ressources minimales garanties (CPU, 0.25 cores)
+            limits:
+              memory: "1Gi" # Ressources maximales autorisées (mémoire)
+              cpu: "500m"     # Ressources maximales autorisées (CPU, 0.5 cores)
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME  # Variable d'environnement pour le nom d'utilisateur root
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret            # Nom du secret contenant le nom d'utilisateur
+                  key: MONGO_INITDB_ROOT_USERNAME # Clé dans le secret
+            - name: MONGO_INITDB_ROOT_PASSWORD  # Variable d'environnement pour le mot de passe root
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret            # Nom du secret contenant le mot de passe
+                  key: MONGO_INITDB_ROOT_PASSWORD # Clé dans le secret
+          volumeMounts:
+            - name: mongodb-data  # Nom du volume à monter dans le conteneur
+              mountPath: /data/db # Chemin dans le conteneur où MongoDB stocke ses données
+      volumes:
+        - name: mongodb-data    # Nom du volume défini dans le pod
+          persistentVolumeClaim:
+            claimName: mongodb-pvc  # Référence au PVC défini plus haut pour la persistance des données
+
+---
+# Service Kubernetes pour MongoDB : expose MongoDB dans le cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service  # Nom du service
+spec:
+  type: ClusterIP       # Type de service par défaut : accessible uniquement dans le cluster
+  selector:
+    app: mongodb       # Sélectionne les pods avec ce label (les pods MongoDB)
+  ports:
+    - protocol: TCP    # Protocole utilisé (MongoDB utilise TCP)
+      port: 27017      # Port exposé par le service dans le cluster
+      targetPort: 27017 # Port sur lequel le conteneur MongoDB écoute
